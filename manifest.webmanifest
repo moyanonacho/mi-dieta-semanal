@@ -1,0 +1,9 @@
+{
+  "name": "Mi Dieta Semanal",
+  "short_name": "Mi Dieta",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0E0E0E",
+  "theme_color": "#0E0E0E",
+  "icons": [{"src": "icono.png", "sizes": "512x512", "type": "image/png"}]
+}

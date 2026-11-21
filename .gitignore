@@ -1,0 +1,4 @@
+# Nunca subir secretos ni cachés
+*.env
+.env*
+__pycache__/
