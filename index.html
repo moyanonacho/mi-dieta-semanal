@@ -278,6 +278,8 @@ details.planedit[open] summary{margin-bottom:10px}
 .lv small{text-align:right} .lv em{font-style:normal;font-weight:700;text-transform:uppercase;font-size:.62rem;letter-spacing:.05em;text-align:center;border-radius:5px;padding:1px 0}
 .lv.justo em{background:var(--good-soft);color:var(--good)} .lv.bajo em{background:var(--warn-soft);color:var(--warn)} .lv.alto em{background:var(--bad-soft);color:var(--bad)}
 .sess.withpic{grid-template-columns:auto minmax(0,1fr) auto;gap:12px}
+.credit{font-size:.68rem;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
+.credit a{color:inherit;text-decoration-color:var(--line)}
 .dishup{display:flex;gap:14px;align-items:center;padding:12px;border:1px dashed var(--line);border-radius:14px}
 .pcard .dish.card{margin-bottom:2px}
 @media (max-width:480px){ .dish.md{width:78px;height:78px} .lv{grid-template-columns:34px minmax(0,1fr) 38px 42px} }
@@ -1021,7 +1023,7 @@ function renderBuilder(){
     ${mt.n ? `<div class="bhmac"><span><b class="num">${nf(mt.kcal)}</b> kcal</span><span><i class="sw" style="background:var(--carb)"></i>HC <b class="num">${nf(mt.c)}</b> g</span><span><i class="sw" style="background:var(--prot)"></i>P <b class="num">${nf(mt.p)}</b> g</span><span><i class="sw" style="background:var(--fat)"></i>G <b class="num">${nf(mt.g)}</b> g</span></div>` : `<div class="bhmac"><span>${isPlato ? "Combina alimentos de tu dieta y guárdalo para usarlo cualquier día." : "Todavía vacía: añade alimentos o elige uno de tus platos."}</span></div>`}
   </div>`;
   if(isPlato) h += `<div class="formgrid"><label class="f">Nombre del plato<input id="bnombre" value="${esc(c.nombre||"")}" placeholder="p. ej. Pollo con arroz" autocomplete="off"></label><label class="f">Comida<select id="bcomida">${MAIN_MEALS.map(m=>`<option value="${m}" ${m===c.meal?"selected":""}>${MEALS.find(x=>x.id===m).n}</option>`).join("")}</select></label></div>`;
-  if(isPlato) h += `<div class="dishup">${dishPic({items:c.items, foto:c.foto, nombre:c.nombre}, "md")}<div class="stack" style="gap:6px"><b>Foto del plato</b><span class="small muted">${c.foto ? "Es la que se ve en el Menú." : "Sin foto: en el Menú se ve un mosaico con sus ingredientes."}</span>
+  if(isPlato) h += `<div class="dishup">${dishPic({items:c.items, foto:c.foto, nombre:c.nombre, credito:c.credito}, "md")}<div class="stack" style="gap:6px"><b>Foto del plato</b><span class="small muted">${c.foto ? "Es la que se ve en el Menú." : "Sin foto: en el Menú se ve un mosaico con sus ingredientes."}</span>${c.foto && c.credito ? `<span class="credit">${c.fuente ? `<a href="${esc(c.fuente)}" target="_blank" rel="noopener">${esc(c.credito)}</a>` : esc(c.credito)}</span>` : ""}
     <div class="btnrow"><label class="btn" for="bfoto">${c.foto ? "Cambiar foto" : "Añadir foto"}</label><input id="bfoto" type="file" accept="image/*" hidden>${c.foto ? `<button class="btn ghost" data-act="rmfoto">Quitar</button>` : ""}</div></div></div>`;
   const canCheat = !isPlato && MAIN_MEALS.includes(c.meal);
   const ch = canCheat ? cheatOf(c.day, c.meal) : null;
@@ -1085,7 +1087,7 @@ function matchPlato(items, meal){
   return best;
 }
 function dishPic(p, cls){
-  if(p.foto) return `<img class="dish ${cls}" src="${esc(fotoUrl(p.foto))}" alt="${esc(p.nombre||"Plato")}" loading="lazy">`;
+  if(p.foto) return `<img class="dish ${cls}" src="${esc(fotoUrl(p.foto))}" alt="${esc(p.nombre||"Plato")}"${p.credito?` title="${esc(p.credito)}"`:""} loading="lazy">`;
   const its = (p.items||[]).map(it=>alim(it.a)).filter(Boolean).slice(0,4);
   return `<span class="dish col n${its.length} ${cls}" aria-hidden="true">${its.map(a=>thumb(a,"cq")).join("")}</span>`;
 }
@@ -1108,7 +1110,7 @@ async function uploadDishPhoto(file){
     cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
     const blob = await new Promise(r=>cv.toBlob(r, "image/jpeg", 0.85));
     const res = await assets.upload(blob, {type:"image/jpeg"});
-    if(sheetCtx?.mode==="plato"){ sheetCtx.foto = res.id; renderBuilder(); }
+    if(sheetCtx?.mode==="plato"){ sheetCtx.foto = res.id; sheetCtx.credito = sheetCtx.fuente = null; renderBuilder(); }
     setStatus("Foto lista: pulsa Guardar");
   }catch(e){ setStatus(e?.code==="too_large" ? "La foto es demasiado grande" : "No se pudo subir la foto"); }
 }
@@ -1650,7 +1652,7 @@ function viewDieta(){
     const list = ps.filter(p=>p.comida===m).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
     if(!list.length) continue;
     h += `<section class="card"><h3 class="bhead">${MEALS.find(x=>x.id===m).n}</h3>` + list.map(p=>{ const t=itemsTotals(p.items);
-      return `<div class="sess withpic">${dishPic(p,"sm")}<div style="min-width:0"><div class="t">${esc(p.nombre)}${p.propuesta?` <span class="pill neutral">propuesta</span>`:""}</div>
+      return `<div class="sess withpic">${dishPic(p,"sm")}<div style="min-width:0"><div class="t">${esc(p.nombre)}${p.propuesta?` <span class="pill neutral">propuesta</span>`:""}</div>${p.foto && p.credito ? `<div class="credit">${p.fuente ? `<a href="${esc(p.fuente)}" target="_blank" rel="noopener">${esc(p.credito)}</a>` : esc(p.credito)}</div>` : ""}
         <div class="muted small">${p.items.map(it=>{ const a=alim(it.a); return a?`${esc(a.n)} ${porText(a,it.r)}`:""; }).filter(Boolean).join(" · ")}</div>
         <div class="rcrow"><span class="pill neutral"><span class="num">${nf(t.kcal)}</span> kcal</span>${racChips(t.r, mealDist(m))}</div></div>
         <button class="btn ghost" data-act="editplato" data-id="${p.id}">Editar</button></div>`; }).join("") + `</section>`;
@@ -1711,7 +1713,7 @@ async function savePlato(){
   const c = sheetCtx; const nombre = (c.nombre||"").trim();
   if(!nombre){ $("#bnombre")?.focus(); setStatus("Ponle un nombre al plato"); return; }
   if(!c.items.length){ setStatus("Añade algún alimento al plato"); return; }
-  const data = {nombre, comida:c.meal, items:clone(c.items), ...(c.foto ? {foto:c.foto} : {})};
+  const data = {nombre, comida:c.meal, items:clone(c.items), ...(c.foto ? {foto:c.foto} : {}), ...(c.foto && c.credito ? {credito:c.credito, ...(c.fuente ? {fuente:c.fuente} : {})} : {})};
   const old = c.id && S.platos[c.id]?.foto;
   if(old && old !== c.foto) dropAsset(old);
   const ref = c.id ? S.db?.doc("platos/"+c.id) : S.db?.collection("platos").doc();
@@ -1823,8 +1825,8 @@ document.addEventListener("click", async e => {
   else if(a==="editsport") openSport(+t.dataset.i);
   else if(a==="delsport"){ S.semana.deporte.splice(+t.dataset.i,1); saveWeek(); closeSheet(); render(); }
   else if(a==="newplato") openBuilder({mode:"plato", meal:"comida", items:[], nombre:""});
-  else if(a==="editplato"){ const p=S.platos[t.dataset.id]; openBuilder({mode:"plato", id:t.dataset.id, meal:p.comida, items:clone(p.items), nombre:p.nombre, foto:p.foto||null}); }
-  else if(a==="rmfoto"){ sheetCtx.foto = null; renderBuilder(); }
+  else if(a==="editplato"){ const p=S.platos[t.dataset.id]; openBuilder({mode:"plato", id:t.dataset.id, meal:p.comida, items:clone(p.items), nombre:p.nombre, foto:p.foto||null, credito:p.credito||null, fuente:p.fuente||null}); }
+  else if(a==="rmfoto"){ sheetCtx.foto = null; sheetCtx.credito = sheetCtx.fuente = null; renderBuilder(); }
 });
 document.addEventListener("submit", e => {
   if(e.target.id==="addx"){ e.preventDefault(); const n=$("#xname").value.trim(); if(!n) return; S.semana.extra.push({n, ok:false}); saveWeek(); render(); $("#xname")?.focus(); }
