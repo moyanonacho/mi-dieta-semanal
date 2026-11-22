@@ -213,6 +213,11 @@ table.acc td{white-space:nowrap}
 .cheatbtn:hover{border-color:var(--cheat);color:var(--fg)}
 .cheatbox{border:2px solid var(--cheat);border-radius:14px;padding:14px}
 .cheathead{display:grid;gap:6px;justify-items:start}
+.cheatfood{display:grid;gap:8px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;overflow:hidden}
+.cheatfood .addb{margin:0 -12px -10px;width:calc(100% + 24px)}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}
+.crow .bn{display:grid;min-width:0}
+.cheatcustom{display:grid;gap:8px;border:1px dashed var(--line);border-radius:12px;padding:12px}
 /* Comida abierta */
 .bhero{margin:-16px -16px 0;padding:8px 16px 14px;background:var(--band);color:var(--band-ink);border-radius:20px 20px 0 0;display:grid;gap:10px}
 .bhero .grab{background:rgba(255,255,255,.25)}
@@ -782,13 +787,53 @@ const CHEAT_T = {rest:"Restaurante", casa:"A domicilio", evento:"Evento", otro:"
 const CHEAT_K = [{k:600,n:"Ligera"},{k:900,n:"Normal"},{k:1300,n:"Copiosa"}];
 const cheatOf = (d,m) => S.semana.cheat?.[d]?.[m] || null;
 const cheatMac = k => ({c:k*0.45/4, p:k*0.20/4, g:k*0.35/9});
+// Alimentos típicos fuera de la dieta (ración habitual en España; valores aproximados). k incluye el alcohol, que no está en los macros.
+const EXTRAS = [
+  {n:"Hamburguesa completa", r:"1 unidad de restaurante", k:650, c:45, p:32, g:36},
+  {n:"Patatas fritas", r:"ración mediana", k:380, c:48, p:4, g:19},
+  {n:"Pizza", r:"2 porciones", k:560, c:66, p:24, g:22},
+  {n:"Kebab o dürüm", r:"1 unidad", k:700, c:70, p:35, g:30},
+  {n:"Bocadillo de calamares", r:"1 unidad", k:600, c:70, p:22, g:25},
+  {n:"Croquetas", r:"4 unidades", k:320, c:28, p:9, g:19},
+  {n:"Patatas bravas", r:"ración", k:450, c:45, p:5, g:28},
+  {n:"Pincho de tortilla", r:"1 pincho", k:230, c:15, p:7, g:16},
+  {n:"Paella de restaurante", r:"1 plato", k:550, c:70, p:25, g:18},
+  {n:"Sushi", r:"8 piezas", k:350, c:60, p:14, g:6},
+  {n:"Burrito", r:"1 unidad", k:650, c:75, p:28, g:25},
+  {n:"Nachos con queso", r:"ración", k:600, c:60, p:15, g:34},
+  {n:"Ensalada César", r:"1 plato", k:450, c:20, p:25, g:30},
+  {n:"Chuletón o entrecot", r:"300 g", k:650, c:0, p:60, g:45},
+  {n:"Jamón ibérico", r:"ración de 80 g", k:300, c:0, p:26, g:22},
+  {n:"Queso curado", r:"ración de 60 g", k:240, c:0, p:15, g:20},
+  {n:"Pan de restaurante", r:"1 panecillo", k:150, c:30, p:5, g:1},
+  {n:"Patatas fritas de bolsa o frutos secos fritos", r:"bolsa pequeña", k:250, c:25, p:3, g:16},
+  {n:"Caña de cerveza", r:"200 ml", k:90, c:7, p:1, g:0},
+  {n:"Tercio de cerveza", r:"330 ml", k:140, c:11, p:1.5, g:0},
+  {n:"Copa de vino", r:"150 ml", k:120, c:4, p:0, g:0},
+  {n:"Refresco normal", r:"1 lata", k:140, c:35, p:0, g:0},
+  {n:"Copa (gin tonic, cubata)", r:"1 copa", k:220, c:18, p:0, g:0},
+  {n:"Tarta o postre de restaurante", r:"1 porción", k:400, c:50, p:5, g:20},
+  {n:"Helado", r:"2 bolas", k:270, c:32, p:4, g:14},
+  {n:"Churros con chocolate", r:"ración", k:550, c:65, p:8, g:28},
+  {n:"Croissant", r:"1 unidad", k:280, c:30, p:6, g:15},
+  {n:"Donut", r:"1 unidad", k:250, c:30, p:4, g:13},
+];
+// Lo que suma una cheat meal: los alimentos añadidos, o si no hay, la estimación elegida
+function cheatTot(ch){
+  const its = ch.items||[];
+  if(!its.length){ const k = +ch.k||0; return {k, ...cheatMac(k), est:true}; }
+  const t = {k:0, c:0, p:0, g:0};
+  for(const it of its){ const q = +it.q||1; t.k += q*(+it.k||0); t.c += q*(+it.c||0); t.p += q*(+it.p||0); t.g += q*(+it.g||0); }
+  return t;
+}
 function dayTotals(day){
   const t = itemsTotals(MEALS.filter(m=>!cheatOf(day,m.id)).flatMap(m=>slot(day,m.id)));
   t.cheats = 0;
-  for(const m of MAIN_MEALS){ const ch = cheatOf(day,m); if(ch){ const q = cheatMac(+ch.k||0); t.c+=q.c; t.p+=q.p; t.g+=q.g; t.n++; t.cheats++; } }
-  t.kcal = t.c*4+t.p*4+t.g*9;
+  t.xk = 0; // kcal que no están en los macros (alcohol)
+  for(const m of MAIN_MEALS){ const ch = cheatOf(day,m); if(ch){ const q = cheatTot(ch); t.c+=q.c; t.p+=q.p; t.g+=q.g; t.xk += Math.max(0, q.k-(q.c*4+q.p*4+q.g*9)); t.n++; t.cheats++; } }
+  t.kcal = t.c*4+t.p*4+t.g*9+t.xk;
   // El batido post-entreno solo cuenta el día que lo marcas en el Menú
-  if(S.semana.batido?.[day] && S.plan?.post){ const q=S.plan.post; t.c+=q.c; t.p+=q.p; t.g+=q.g; t.kcal=t.c*4+t.p*4+t.g*9; t.post=true; }
+  if(S.semana.batido?.[day] && S.plan?.post){ const q=S.plan.post; t.c+=q.c; t.p+=q.p; t.g+=q.g; t.kcal=t.c*4+t.p*4+t.g*9+t.xk; t.post=true; }
   return t;
 }
 function dayTarget(d){ const r={}; for(const m of MEALS){ if(d!=null && cheatOf(d,m.id)) continue; for(const [g,n] of Object.entries(mealDist(m.id))) r[g]=(r[g]||0)+n; } return r; }
@@ -938,7 +983,7 @@ function viewMenu(){
       const ch = cheatOf(d,m.id);
       if(ch){ h += `<button class="mrow cheat" data-act="pick" data-day="${d}" data-meal="${m.id}"><span class="mic">${CHEAT_ICO}</span>
         <span class="mcol"><span class="mtop"><b class="mname">${m.n}</b><span class="cheattag">Cheat meal</span></span>
-        <span class="small">${CHEAT_T[ch.t]||"Fuera del plan"} · ≈<b class="num">${nf(ch.k)}</b> kcal${ch.n?` · ${esc(ch.n)}`:""}</span></span></button>`; continue; }
+        <span class="small">${CHEAT_T[ch.t]||"Fuera del plan"} · ≈<b class="num">${nf(cheatTot(ch).k)}</b> kcal${(ch.items||[]).length?` · ${esc(ch.items.map(it=>(+it.q!==1?nf(it.q,1)+" × ":"")+it.n).join(", "))}`:""}${ch.n?` · ${esc(ch.n)}`:""}</span></span></button>`; continue; }
       const items = slot(d,m.id); const mt = itemsTotals(items);
       const mp = MAIN_MEALS.includes(m.id) ? matchPlato(items, m.id) : null;
       if(mp){ h += `<button class="mrow dishrow" data-act="pick" data-day="${d}" data-meal="${m.id}"><span class="mic">${MEAL_ICO[m.id]||""}</span>
@@ -1028,17 +1073,38 @@ function renderBuilder(){
   const canCheat = !isPlato && MAIN_MEALS.includes(c.meal);
   const ch = canCheat ? cheatOf(c.day, c.meal) : null;
   if(ch){
+    if(c.cheatAdd){
+      h += `<div class="chooser"><div class="chhead" style="--gc:var(--cheat)"><button class="btn ghost" data-act="cheatadd" data-v="">← Volver</button><div><b>¿Qué comiste fuera de la dieta?</b><small>Toca para añadir una ración típica; luego ajusta la cantidad</small></div></div>
+        <input id="cq" type="search" placeholder="Buscar: pizza, cerveza, croquetas…" value="${esc(c.cq||"")}" autocomplete="off">
+        <div id="clist" class="stack" style="gap:6px"></div>
+        <form id="cheatForm" class="cheatcustom"><b>¿No está en la lista? Añádelo a mano</b><span class="small muted">Mira la etiqueta o la carta. Si solo sabes las kcal, deja los macros vacíos.</span>
+          <div class="formgrid"><label class="f full">Qué es<input id="cf-n" required placeholder="p. ej. Tarta de queso" autocomplete="off"></label>
+          <label class="f">kcal<input id="cf-k" type="number" min="0" inputmode="numeric"></label><label class="f">Hidratos (g)<input id="cf-c" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label class="f">Proteína (g)<input id="cf-p" type="number" min="0" step="any" inputmode="decimal"></label><label class="f">Grasa (g)<input id="cf-g" type="number" min="0" step="any" inputmode="decimal"></label></div>
+          <button class="btn primary">Añadir</button></form></div>`;
+      $("#sheetInner").innerHTML = h;
+      $("#cq").addEventListener("input", e=>{ c.cq = e.target.value; drawCheatList(); }); drawCheatList();
+      return;
+    }
+    const ct = cheatTot(ch), its = ch.items||[];
     h += `<div class="cheatbox stack">
-      <div class="cheathead"><span class="cheattag">Cheat meal</span><span class="small">Esta comida no sigue el plan: sus alimentos no cuentan ni van a la compra. Se suma una estimación de lo que comiste.</span></div>
+      <div class="cheathead"><span class="cheattag">Cheat meal</span><span class="small">Esta comida no sigue el plan: sus alimentos de la dieta no cuentan ni van a la compra. Cuenta lo que añadas abajo o, si no añades nada, una estimación.</span></div>
       <div class="small muted" style="font-weight:700">¿Dónde?</div>
       <div class="seg">${Object.entries(CHEAT_T).map(([k,v])=>`<button type="button" data-act="cheatset" data-f="t" data-v="${k}" aria-pressed="${ch.t===k}">${v}</button>`).join("")}</div>
-      <div class="small muted" style="font-weight:700">¿Cuánto comiste? (aproximado)</div>
+      <div class="cheatfood"><div class="dayline"><b>¿Qué comiste? <small class="muted">(lo más exacto)</small></b><span class="pill ${its.length?"good":"neutral"}">≈ <span class="num">${nf(ct.k)}</span> kcal</span></div>
+        ${its.map((it,i)=>`<div class="crow"><span class="bn"><b>${esc(it.n)}</b><span class="muted small">${it.r?esc(it.r)+" · ":""}${nf(it.k)} kcal${it.c||it.p||it.g?` · HC ${nf(it.c)} · P ${nf(it.p)} · G ${nf(it.g)}`:""}</span></span>
+          <span class="step"><button data-act="cheatq" data-i="${i}" data-d="-0.5" aria-label="Menos">−</button><span class="num">${nf(it.q||1,1)}</span><button data-act="cheatq" data-i="${i}" data-d="0.5" aria-label="Más">+</button></span>
+          <button class="del" data-act="cheatdel" data-i="${i}" aria-label="Quitar ${esc(it.n)}">×</button></div>`).join("")}
+        <button class="addb" data-act="cheatadd" data-v="1" style="--gc:var(--cheat)"><span>+</span> Añadir lo que comiste</button>
+        ${its.length ? `<div class="small muted">Suma de lo añadido: HC <b class="num">${nf(ct.c)}</b> g · Proteína <b class="num">${nf(ct.p)}</b> g · Grasa <b class="num">${nf(ct.g)}</b> g${ct.k-(ct.c*4+ct.p*4+ct.g*9)>5?` · ${nf(ct.k-(ct.c*4+ct.p*4+ct.g*9))} kcal de alcohol u otros`:""}</div>` : ""}
+      </div>
+      ${its.length ? "" : `<div class="small muted" style="font-weight:700">Si no quieres detallarlo: ¿cuánto comiste, más o menos?</div>
       <div class="seg">${CHEAT_K.map(o=>`<button type="button" data-act="cheatset" data-f="k" data-v="${o.k}" aria-pressed="${+ch.k===o.k}">${o.n} ≈${nf(o.k)}</button>`).join("")}</div>
-      <div class="formgrid"><label class="f">O escribe las kcal<input id="cheatk" type="number" min="0" step="50" inputmode="numeric" value="${ch.k}"></label>
-      <label class="f">Nota (opcional)<input id="cheatn" value="${esc(ch.n||"")}" placeholder="p. ej. Hamburguesa con el equipo" autocomplete="off"></label></div>
+      <label class="f">O escribe las kcal<input id="cheatk" type="number" min="0" step="50" inputmode="numeric" value="${ch.k}"></label>`}
+      <label class="f">Nota (opcional)<input id="cheatn" value="${esc(ch.n||"")}" placeholder="p. ej. Cena con el equipo" autocomplete="off"></label>
       <button class="btn ghost" data-act="cheatoff">Quitar cheat meal y volver al plan</button></div>`;
     $("#sheetInner").innerHTML = h;
-    $("#cheatk").addEventListener("input", e=>{ ch.k = Math.max(0, +e.target.value||0); saveWeek(); document.querySelectorAll('[data-f="k"]').forEach(b=>b.setAttribute("aria-pressed", +b.dataset.v===ch.k)); });
+    $("#cheatk")?.addEventListener("input", e=>{ ch.k = Math.max(0, +e.target.value||0); saveWeek(); document.querySelectorAll('[data-f="k"]').forEach(b=>b.setAttribute("aria-pressed", +b.dataset.v===ch.k)); });
     $("#cheatn").addEventListener("input", e=>{ ch.n = e.target.value; saveWeek(); });
     return;
   }
@@ -1120,6 +1186,11 @@ function racTiles(used, target){
     const u = Math.round((used[g]||0)*10)/10, cls = Math.abs(u-n)<0.01 ? "good" : u<n ? "warn" : "bad";
     return `<div class="rt ${cls}" style="--gc:${GRP[g].col}"><span class="k">${GRP[g].n}</span><span class="v">${nf(u,1)}<small>/${nf(n,1)}</small></span><span class="bar"><i style="width:${Math.min(100,n?u/n*100:0)}%"></i></span></div>`;
   }).join("");
+}
+function drawCheatList(){
+  const q = norm(sheetCtx.cq||"");
+  const list = EXTRAS.map((e,i)=>({e,i})).filter(({e})=>!q || norm(e.n).includes(q));
+  $("#clist").innerHTML = list.map(({e,i})=>`<button class="opt" data-act="cheatpick" data-i="${i}"><span class="body"><span class="name">${esc(e.n)}</span><br><span class="muted small">${esc(e.r)} · <b class="num">${nf(e.k)}</b> kcal · HC ${nf(e.c)} · P ${nf(e.p)} · G ${nf(e.g)}</span></span></button>`).join("") || `<div class="empty">No está en la lista: añádelo a mano abajo.</div>`;
 }
 const COL_ORD = {v:0,a:1,n:2,r:3};
 function drawFoods(){
@@ -1783,6 +1854,15 @@ document.addEventListener("click", async e => {
   else if(a==="repeatgo") repeatMenu(t);
   else if(a==="cheaton"){ const c=sheetCtx; S.semana.cheat ||= {}; (S.semana.cheat[c.day] ||= {})[c.meal] = {t:"rest", k:900, n:""}; saveWeek(); renderBuilder(); }
   else if(a==="cheatoff"){ const c=sheetCtx; if(S.semana.cheat?.[c.day]) delete S.semana.cheat[c.day][c.meal]; saveWeek(); renderBuilder(); }
+  else if(a==="cheatadd"){ sheetCtx.cheatAdd = !!t.dataset.v; sheetCtx.cq = ""; renderBuilder(); $("#sheet").scrollTop = 0; }
+  else if(a==="cheatpick"){
+    const c=sheetCtx, ch=cheatOf(c.day,c.meal), e=EXTRAS[+t.dataset.i]; if(!ch||!e) return;
+    ch.items ||= []; const ex = ch.items.find(x=>x.n===e.n);
+    if(ex) ex.q = (+ex.q||1) + 1; else ch.items.push({...e, q:1});
+    c.cheatAdd = false; saveWeek(); renderBuilder();
+  }
+  else if(a==="cheatq"){ const c=sheetCtx, it=cheatOf(c.day,c.meal)?.items?.[+t.dataset.i]; if(!it) return; it.q = Math.max(0.5, Math.round(((+it.q||1) + +t.dataset.d)*2)/2); saveWeek(); renderBuilder(); }
+  else if(a==="cheatdel"){ const c=sheetCtx, ch=cheatOf(c.day,c.meal); ch?.items?.splice(+t.dataset.i,1); saveWeek(); renderBuilder(); }
   else if(a==="cheatset"){ const c=sheetCtx, ch=cheatOf(c.day,c.meal); if(!ch) return; ch[t.dataset.f] = t.dataset.f==="k" ? +t.dataset.v : t.dataset.v; saveWeek(); renderBuilder(); }
   else if(a==="goday"){ document.getElementById("day-"+t.dataset.day)?.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"start"}); }
   else if(a==="batido"){ const d=+t.dataset.day; S.semana.batido ||= {}; if(S.semana.batido[d]) delete S.semana.batido[d]; else S.semana.batido[d]=true; saveWeek(); render(); }
@@ -1829,6 +1909,15 @@ document.addEventListener("click", async e => {
   else if(a==="rmfoto"){ sheetCtx.foto = null; sheetCtx.credito = sheetCtx.fuente = null; renderBuilder(); }
 });
 document.addEventListener("submit", e => {
+  if(e.target.id==="cheatForm"){
+    e.preventDefault();
+    const c=sheetCtx, ch=c && cheatOf(c.day,c.meal); if(!ch) return;
+    const n=$("#cf-n").value.trim(), cc=+$("#cf-c").value||0, pp=+$("#cf-p").value||0, gg=+$("#cf-g").value||0;
+    const k = +$("#cf-k").value || (cc*4+pp*4+gg*9);
+    if(!n || !k){ setStatus("Pon qué es y sus kcal (o sus macros)"); return; }
+    (ch.items ||= []).push({n, r:"", k, c:cc, p:pp, g:gg, q:1});
+    c.cheatAdd = false; saveWeek(); renderBuilder(); return;
+  }
   if(e.target.id==="addx"){ e.preventDefault(); const n=$("#xname").value.trim(); if(!n) return; S.semana.extra.push({n, ok:false}); saveWeek(); render(); $("#xname")?.focus(); }
   if(e.target.id==="perfilForm" || e.target.id==="objForm") e.preventDefault();
 });
